@@ -1,11 +1,23 @@
-import os, torch, json, time, re
+import os
+
+# --- 强制：彻底清理代理环境变量 ---
+proxy_env_vars = [
+    "http_proxy", "https_proxy", "all_proxy", "no_proxy",
+    "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"
+]
+for var in proxy_env_vars:
+    os.environ.pop(var, None)
+
+os.environ["NO_PROXY"] = "127.0.0.1,localhost,0.0.0.0"
+
+import torch, json, time, re
 import gradio as gr
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel, LoraConfig, set_peft_model_state_dict
 
 class SoulArchitect:
     def __init__(self):
-        self.root = os.path.dirname(os.path.abspath(__file__)) # 修正路径定位
+        self.root = os.path.dirname(os.path.abspath(__file__)) 
         self.base_path = os.getenv("ARCHITECT_BASE_MODEL", "/data/ai-prompt/models/qwen/Qwen2.5-3B-Raw")
         self.core_file = "/data/return/models/binary_cores/ARCHITECT_V2_PRO.core"
         self.history_file = os.path.join(self.root, "history.json")
@@ -16,8 +28,9 @@ class SoulArchitect:
         try:
             print(f"激活原生 BF16 : {self.base_path}")
             self.tokenizer = AutoTokenizer.from_pretrained(self.base_path, trust_remote_code=True)
+            # 修正弃用警告：使用 dtype 代替 torch_dtype
             base = AutoModelForCausalLM.from_pretrained(
-                self.base_path, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
+                self.base_path, dtype=torch.bfloat16, device_map="auto", trust_remote_code=True
             )
             from safetensors import safe_open
             with safe_open(self.core_file, framework="pt", device="cuda") as f:
@@ -74,7 +87,6 @@ class SoulArchitect:
         except Exception as e:
             return f"<div style='color:red;'>异常: {str(e)}</div>", self.render_history_text()
             
-            
     def _render_html(self, cn, pos, neg, dur):
         return f"""
         <div style="font-family:sans-serif;">
@@ -84,7 +96,7 @@ class SoulArchitect:
             </div>
             <div style="background:#1a1a1a; padding:20px; border-radius:8px;">
                 <div style="margin-bottom:15px;">
-                    <b style="color:#666; font-size:0.6em; font-weight:900; letter-spacing:1px;">POSITIVE PROMPT (RAW PHOTO)</b>
+                    <b style="color:#666;font-size:0.6em; font-weight:900; letter-spacing:1px;">POSITIVE PROMPT (RAW PHOTO)</b>
                     <div style="color:#00ffcc; font-family:monospace; font-size:0.95em; border-left:2px solid #00ffcc; padding-left:12px; margin-top:8px;">{pos}</div>
                 </div>
                 <b style="color:#666; font-size:0.6em; font-weight:900; letter-spacing:1px;">NEGATIVE PROMPT</b>
@@ -118,17 +130,12 @@ class SoulArchitect:
         with open(self.history_file, "w", encoding="utf-8") as f: 
             json.dump(h[-50:], f, ensure_ascii=False, indent=2)
 
-    def clear_history_logic(self):
-        """执行物理删除并返回清空后的HTML"""
-        if os.path.exists(self.history_file):
-            os.remove(self.history_file)
-        return self.render_history_text()
-
-# 启动流程
+# 初始化
 architect = SoulArchitect()
 architect.boot()
 
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
+# 布局逻辑
+with gr.Blocks() as demo:
     gr.HTML("<div style='text-align:center; padding:15px; font-weight:900; font-size:1.3em;'>SOUL ARCHITECT v2.0 <span style='color:#2a9d8f; font-size:0.6em;'>DEMO</span></div>")
     with gr.Row():
         with gr.Column(scale=4):
@@ -141,15 +148,21 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
             gr.Markdown("### 历史存档")
             hist_h = gr.HTML(value=architect.render_history_text())
     
-    # 逻辑绑定
-    btn_gen.click(architect.generate_architect_v2, inputs=[u_in], outputs=[out_h, hist_h])
-    u_in.submit(architect.generate_architect_v2, inputs=[u_in], outputs=[out_h, hist_h])
+    # 交互绑定
+    btn_gen.click(fn=architect.generate_architect_v2, inputs=[u_in], outputs=[out_h, hist_h])
+    u_in.submit(fn=architect.generate_architect_v2, inputs=[u_in], outputs=[out_h, hist_h])
     
-    # 清空逻辑：返回空输入、空输出展示,保留历史HTML
-    btn_clr.click(
-        fn=lambda: ("", ""), 
-        inputs=[], 
-        outputs=[u_in, out_h]
-    )
+    # 清空逻辑：仅重置输入框和主结果区
+    btn_clr.click(fn=lambda: ("", ""), inputs=[], outputs=[u_in, out_h])
+
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=8888, share=False)
+    # 按照 Gradio 6.0 建议，将 theme 移入 launch
+    print(f"ARCHITECT 2.0 DEMO 启动中...")
+    print(f"项目根目录: {architect.root}")
+    demo.launch(
+        server_name="127.0.0.1", 
+        server_port=8888, 
+        theme=gr.themes.Soft(),
+        share=False,
+        debug=True
+    )

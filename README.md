@@ -66,8 +66,11 @@ $ conda activate ./arch20_runtime
  Edit app.py: MODEL_PATH = "/your/local/path/Qwen2.5-3B-Raw"
  Edit app.py: CORE_PATH = "./models/binary_cores/architect_v2.core"
 
+Fast start
+$ conda activate /your/path/arch20_runtime
+$ cd SOUL_ARCHITECT_v2
 $ python app.py
- [NETWORK]: Access UI via http://0.0.0.0:8888
+ [NETWORK]: Access UI via http://0.0.0.0:8888 or http://127.0.0.1:8888
 
 ---
 
@@ -228,13 +231,15 @@ cd SOUL_ARCHITECT_v2
 3. 启动引擎
 python app.py
 
-访问界面： 启动成功后，终端会输出一个本地 IP 地址（如 http://0.0.0.0:8888）。右键点击该地址或将其复制到浏览器访问，即可开启构筑界面
+访问界面： 启动成功后，终端会输出一个本地 IP 地址（如 http://0.0.0.0:8888）。右键点击该地址或将其复制到浏览器访问，即可开启构筑界面,无法访问使用可尝试 http://127.0.0.1:8888，可能会卡几十秒，请稍候
+
 目录结构清单
 
 app.py：智能启动器（已处理路径自适应与端口检测）
 core/engine.py：开源推理逻辑核心，核心权重采用 BF16 固化处理，在 Blackwell 架构上通过 Tensor Core 实现零时延精度对齐
 models/binary_cores/：微调后的 .core 权重文件
 tools/smelt_v2.py：权重重熔工具
+
 硬件与配置要求 (Requirements) 为了保证推理速度（建议 2-4 秒内）和 BF16 精度，建议配置如下：
 
 显卡：首选 NVIDIA Blackwell 架构显卡（如 RTX 50 系列），亦兼容 Ada Lovelace (RTX 40 系列)，暂不支持AMD，Intel显卡，未来可能引入CPU硬解
